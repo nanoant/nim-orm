@@ -6,39 +6,51 @@ type
 
   ORMStmt = object
     query: string
-    # args: seq[string] # <- enabling that causes string concat
+    when defined(ormargs):
+      args: seq[string] # <- enabling that causes string concat
                         #    compile time folding no longer work
 
   User = Model
 
 template `.`(T: typedesc[Model], f: string): ORMStmt =
-  ORMStmt(query: typetraits.name(T) & "." & f,
-          # args: @[]
-          )
+  when defined(ormargs):
+    ORMStmt(query: typetraits.name(T) & "." & f,
+            args: @[])
+  else:
+    ORMStmt(query: typetraits.name(T) & "." & f)
 
 template `and`(a: ORMStmt, b: ORMStmt): ORMStmt =
-  ORMStmt(query: "(" & a.query & " AND " & b.query & ")",
-          # args: a.args & b.args
-          )
+  when defined(ormargs):
+    ORMStmt(query: "(" & a.query & " AND " & b.query & ")",
+            args: a.args & b.args)
+  else:
+    ORMStmt(query: "(" & a.query & " AND " & b.query & ")")
 
 template `or`(a: ORMStmt, b: ORMStmt): ORMStmt =
-  ORMStmt(query: "(" & a.query & " OR " & b.query & ")",
-          # args: a.args & b.args
-          )
+  when defined(ormargs):
+    ORMStmt(query: "(" & a.query & " OR " & b.query & ")",
+            args: a.args & b.args)
+  else:
+    ORMStmt(query: "(" & a.query & " OR " & b.query & ")")
 
 template `==`(st: ORMStmt, str: string): ORMStmt =
-  ORMStmt(query: st.query & " == \"$#\"",
-          # args: st.args & @[str]
-          )
+  when defined(ormargs):
+    ORMStmt(query: st.query & " == \"$#\"",
+            args: st.args & @[str])
+  else:
+    ORMStmt(query: st.query & " == \"$#\"")
 
 template `==`(st: ORMStmt, i): ORMStmt =
-  ORMStmt(query: st.query & " == $#",
-          # args: st.args & @[$i]
-          )
+  when defined(ormargs):
+    ORMStmt(query: st.query & " == $#",
+            args: st.args & @[$i])
+  else:
+    ORMStmt(query: st.query & " == $#")
 
 proc `$`(st: ORMStmt): string =
-  # st.query % st.args
-  st.query
+  when defined(ormargs):
+    st.query % st.args
+  else:
+    st.query
 
-# echo User.id
 echo User.id == 1 and User.name == "adam" or User.pw == "1234"
