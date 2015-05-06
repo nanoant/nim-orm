@@ -21,16 +21,41 @@
 # THE SOFTWARE.
 
 import macros
+from typetraits import nil
+
+when defined(sqlite):
+  from db_sqlite as DB import nil
+elif defined(postgres):
+  from db_postgres as DB import nil
+elif defined(mysql):
+  from db_mysql as DB import nil
 
 ## This module implements ORM (Object-relational mapping) for Nim's db
 ## interfaces.
 
 type
-  Model = object
+  Model* {.inheritable.} = object of RootObj
+    ## represents abstract ORM model class
+    ##
+    ## All concrete model classes should inherit from this one.
+    ## Example:
+    ##
+    ## .. code-block:: nim
+    ##
+    ##   type User = object of Model
+    ##     name: string
+    ##     password: string
 
-proc genQuery(T: typedesc[Model], n: NimNode, args: var seq[NimNode]): string
+var db : DB.TDBConn = nil
+
+proc open*(T: typedesc[Model], connection, user, password, database: string) =
+  ## Opens database for ORM.
+  db = DB.open(connection, user, password, database)
+
+proc genWhere*(T: typedesc[Model], n: NimNode, args: var seq[NimNode]): string
   {.compileTime.} =
-  ## Generates SQL query out of expr AST
+  ## Generates SQL where out of expr AST.
+  ## This is internal procedure.
   const sqlInfixOps = [
     ("==",  "="),
     ("!=",  "<>"),
@@ -41,21 +66,21 @@ proc genQuery(T: typedesc[Model], n: NimNode, args: var seq[NimNode]): string
   case n.kind:
   # parenthesis
   of nnkPar:
-    return "(" & genQuery(T, n[0], args) & ")"
+    return "(" & genWhere(T, n[0], args) & ")"
   # process all infix operators
   of nnkInfix:
     let ident = $n[0].ident
     case ident:
     # common Nim and SQL operators
     of "+", "-", "*", "/", "%", "<", "<=", ">", ">=":
-      return genQuery(T, n[1], args) & " " & ident & " " &
-             genQuery(T, n[2], args)
+      return genWhere(T, n[1], args) & " " & ident & " " &
+             genWhere(T, n[2], args)
     else:
       # check for Nim to SQL operator conversion
       for i in 0..sqlInfixOps.len-1:
         if $n[0].ident == sqlInfixOps[i][0]:
-          return genQuery(T, n[1], args) & " " & sqlInfixOps[i][1] & " " &
-                 genQuery(T, n[2], args)
+          return genWhere(T, n[1], args) & " " & sqlInfixOps[i][1] & " " &
+                 genWhere(T, n[2], args)
   # integer literal
   of nnkIntLit:
       return $n.intVal
@@ -70,26 +95,28 @@ proc genQuery(T: typedesc[Model], n: NimNode, args: var seq[NimNode]): string
   args.add(n)
   result = "?"
 
-proc execQuery*(T: typedesc[Model], query: string, args: varargs[string, `$`]) =
-  ## Generates SQL query with given arguments
-  echo "query=", query # NYI
-  echo "args=", args.repr
+proc exec*(T: typedesc[Model], query: string, args: varargs[string, `$`]) =
+  ## Executes query with current db API handle, returns nothing.
+  DB.exec(db, DB.sql(query), args)
 
-macro where*(T: typedesc[Model], st: untyped): stmt =
-  ## Generates SQL query out of statement and executes it
+iterator fetch*(T: typedesc[Model], query: string, args: varargs[string, `$`]):
+  DB.TRow =
+  ## Executes query with current db API handle and fetches results as instances
+  ## of T < Model.
+  for r in DB.rows(db, DB.sql(query), args): yield r
+
+macro where*(T: typedesc[Model], st: untyped): expr =
+  ## Generates SQL query out of untyped expression and returns call to fetch
+  ## iterator with generated SQL query as argument and all not resolved
+  ## subexpressions.
   var args = newSeq[NimNode]()
-  result = newCall(newDotExpr(newIdentNode(T.repr), bindSym"execQuery"),
-                   newLit(genQuery(T, st, args)))
-  result.add(args)
-
-# ---
-
-when isMainModule:
-
-  type User = Model
-
-  var password = "ABC"
-  var name = "joe"
-
-  User.where((@password == "abc" or @password == password) and
-             (@name == "joe" or @name == name))
+  let query = "SELECT * FROM " & T.repr & " WHERE " & genWhere(T, st, args)
+  result = newNimNode(nnkCall)
+    .add(bindSym"fetch")
+    .add(newIdentNode("Model"))
+    # FIXME: should be:
+    # .add(newIdentNode(T.repr))
+    # but crashes because of:
+    # https://github.com/Araq/Nim/issues/2662
+    .add(newLit(query))
+    .add(args)
