@@ -59,7 +59,7 @@ for user in User.where((@password == "123" or @password == password) and
 is translated to:
 
 ~~~nim
-for user in User.fetch("SELECT * FROM `User` where
+for user in User.fetch("SELECT `name`, `password` FROM `User` where
                         (`User`.`password` = '123' OR `User`.`password` = ?) AND
                         (`User`.`name` = 'joe' OR `User`.`name` = ?)",
                        password, name):
