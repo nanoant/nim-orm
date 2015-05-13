@@ -23,12 +23,11 @@
 import macros
 from typetraits import nil
 
-when defined(sqlite):
-  from db_sqlite as DB import nil
-elif defined(postgres):
-  from db_postgres as DB import nil
-elif defined(mysql):
-  from db_mysql as DB import nil
+when not declared(TDBConn):
+  {.error: """orm is not intended to be used directly, use wrappers, eg.:
+import orm_sqlite   # for sqlite
+import orm_mysql    # for mysql
+import orm_postgres # for postgres""".}
 
 ## This module implements ORM (Object-relational mapping) for Nim's db
 ## interfaces.
@@ -46,11 +45,11 @@ type
     ##     name: string
     ##     password: string
 
-var db : DB.TDBConn = nil
+var db : TDBConn = nil
 
 proc open*(T: typedesc[Model], connection, user, password, database: string) =
   ## Opens database for ORM.
-  db = DB.open(connection, user, password, database)
+  db = open(connection, user, password, database)
 
 proc genWhere*(T: typedesc[Model], n: NimNode, args: var seq[NimNode]): string
   {.compileTime.} =
@@ -97,13 +96,13 @@ proc genWhere*(T: typedesc[Model], n: NimNode, args: var seq[NimNode]): string
 
 proc exec*(T: typedesc[Model], query: string, args: varargs[string, `$`]) =
   ## Executes query with current db API handle, returns nothing.
-  DB.exec(db, DB.sql(query), args)
+  exec(db, sql(query), args)
 
 iterator fetch*(T: typedesc[Model], query: string, args: varargs[string, `$`]):
-  DB.TRow =
+  TRow =
   ## Executes query with current db API handle and fetches results as instances
   ## of T < Model.
-  for r in DB.rows(db, DB.sql(query), args): yield r
+  for r in rows(db, sql(query), args): yield r
 
 macro where*(T: typedesc[Model], st: untyped): expr =
   ## Generates SQL query out of untyped expression and returns call to fetch

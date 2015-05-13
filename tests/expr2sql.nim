@@ -1,4 +1,4 @@
-import ../orm
+import ../orm_sqlite
 import macros
 
 type User = object of Model
