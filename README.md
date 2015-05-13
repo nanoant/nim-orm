@@ -12,7 +12,7 @@ ORM module imports on of the databases.
 ### Features
 
 1. Turning Nim expressions into SQL syntax at compile time
-2. **WIP** Iterating through model objects based on given `where(...)`
+2. Iterating through model objects based on given `where(...)`
 3. **NYI** Storing model object changes via `save()`
 
 ### Usage

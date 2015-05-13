@@ -20,7 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
-import macros
+import macros, strutils
 from typetraits import nil
 
 when not declared(TDBConn):
@@ -98,24 +98,38 @@ proc exec*(T: typedesc[Model], query: string, args: varargs[string, `$`]) =
   ## Executes query with current db API handle, returns nothing.
   exec(db, sql(query), args)
 
-iterator fetch*(T: typedesc[Model], query: string, args: varargs[string, `$`]):
-  TRow =
+iterator fetch*[T: Model](t: typedesc[T], query: string,
+                          args: varargs[string, `$`]): T =
   ## Executes query with current db API handle and fetches results as instances
   ## of T < Model.
-  for r in rows(db, sql(query), args): yield r
+  for r in rows(db, sql(query), args):
+    var model : T
+    var i = 0
+    for field in model.fields:
+      field = r[i]
+      i += 1
+    yield model
+
+when not declared(typeNode):
+  proc typeNode(t: typedesc): NimNode {.magic: "NGetType", noSideEffect.}
+
+proc getQuotedTypeFields(T: typedesc): seq[string] {.compileTime.} =
+  # Generated list of fields for given object typedesc
+  let recList = T.typeNode[1].getType[1]
+  result = newSeq[string]()
+  for node in children(recList):
+    result.add("`" & node.repr & "`")
 
 macro where*(T: typedesc[Model], st: untyped): expr =
   ## Generates SQL query out of untyped expression and returns call to fetch
   ## iterator with generated SQL query as argument and all not resolved
   ## subexpressions.
   var args = newSeq[NimNode]()
-  let query = "SELECT * FROM " & T.repr & " WHERE " & genWhere(T, st, args)
+  let queryFields = T.getQuotedTypeFields.join(", ")
+  let query = "SELECT " & queryFields & " FROM " & T.repr &
+              " WHERE " & genWhere(T, st, args)
   result = newNimNode(nnkCall)
     .add(bindSym"fetch")
-    .add(newIdentNode("Model"))
-    # FIXME: should be:
-    # .add(newIdentNode(T.repr))
-    # but crashes because of:
-    # https://github.com/Araq/Nim/issues/2662
+    .add(newIdentNode(T.repr))
     .add(newLit(query))
     .add(args)

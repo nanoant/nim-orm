@@ -1,7 +1,10 @@
 import ../orm_sqlite
 import macros
+import strutils
 
 type User = object of Model
+  name : string
+  password : string
 
 Model.open("", "", "", "")
 Model.exec("CREATE TABLE User(name varchar(32), password varchar(32))", [])
@@ -14,8 +17,8 @@ var name = "ann"
 # expected: joe, ann
 for u in User.where((@password == "123" or @password == password) and
                     (@name == "joe" or @name == name)):
-  echo u[0]
+  echo "`$1' has password `$2'" % [ u.name, u.password ]
 
 # expected: ann
 for u in User.where(@password == "abc"):
-  echo u[0]
+  echo "`$1' has password `$2'" % [ u.name, u.password ]
