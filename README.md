@@ -17,17 +17,28 @@ ORM module imports on of the databases.
 
 ### Usage
 
-1. Iterating through model objects based on given expression
+1. Importing module and selecting database interface
 
-```nim
-var password = "abc"
-var name = "ann"
+   ~~~nim
+   import orm_sqlite #<- for interfacing with sqlite
+   # create empty in memory database
+   Model.open("", "", "", "")
+   Model.exec("CREATE TABLE User(name varchar(32), password varchar(32))", [])
+   Model.exec("INSERT INTO User VALUES('joe', '123')", [])
+   Model.exec("INSERT INTO User VALUES('ann', 'abc')", [])
+   ~~~
 
-# expected: joe, ann
-for user in User.where((@password == "123" or @password == password) and
-                       (@name == "joe" or @name == name)):
-  echo user.name
-```
+2. Iterating through model objects based on given expression
+
+   ~~~nim
+   var password = "abc"
+   var name = "ann"
+   
+   # expected: joe, ann
+   for user in User.where((@password == "123" or @password == password) and
+                          (@name == "joe" or @name == name)):
+     echo user.name
+   ~~~
 
 ### Discussion
 
@@ -37,22 +48,22 @@ higher level.
 
 Currently the module translates expressions into SQL calls at compile time, eg.:
 
-```nim
+~~~nim
 var password = "abc"
 var name = "ann"
 
 for user in User.where((@password == "123" or @password == password) and
                        (@name == "joe" or @name == name)):
-```
+~~~
 
 is translated to:
 
-```nim
+~~~nim
 for user in User.fetch("SELECT * FROM `User` where
                         (`User`.`password` = '123' OR `User`.`password` = ?) AND
                         (`User`.`name` = 'joe' OR `User`.`name` = ?)",
                        password, name):
-```
+~~~
 
 [ruby]: https://www.ruby-lang.org/
 [activemodel]: https://github.com/rails/rails/tree/master/activemodel
