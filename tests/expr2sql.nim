@@ -15,10 +15,11 @@ var password = "abc"
 var name = "ann"
 
 # expected: joe, ann
-for u in User.where((@password == "123" or @password == password) and
-                    (@name == "joe" or @name == name)):
-  echo "`$1' has password `$2'" % [ u.name, u.password ]
+for user in User.where((@password == "123" or @password == password) and
+                       (@name == "joe" or @name == name)):
+  echo "`$1' has password `$2'" % [ user.name, user.password ]
 
 # expected: ann
-for u in User.where(@password == "abc"):
-  echo "`$1' has password `$2'" % [ u.name, u.password ]
+for user in User.where(@password == "abc"):
+  echo "`$1' has password `$2'" % [ user.name, user.password ]
+  user.password = "test"

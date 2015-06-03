@@ -44,6 +44,9 @@ type
     ##   type User = object of Model
     ##     name: string
     ##     password: string
+    loaded: set[int8] ## maintains list of fields loaded from db
+    stored: set[int8] ## maintains list of fields to be stored in the db
+    row: TDeferredRow
 
 var db : TDBConn = nil
 
@@ -99,33 +102,59 @@ proc exec*(T: typedesc[Model], query: string, args: varargs[string, `$`]) =
   exec(db, sql(query), args)
 
 iterator fetch*[T: Model](t: typedesc[T], query: string,
-                          args: varargs[string, `$`]): T =
+                          args: varargs[string, `$`]): ref T =
   ## Executes query with current db API handle and fetches results as instances
   ## of T < Model.
-  for r in rows(db, sql(query), args):
-    var model : T
-    var i = 0
-    for field in model.fields:
-      field = r[i]
-      i += 1
+  for row in deferredRows(db, sql(query), args):
+    var model : ref T
+    new(model)
+    {.noRewrite.}: ({.noRewrite.}: model.row) = row
     yield model
 
-when not declared(typeNode):
-  proc typeNode(t: typedesc): NimNode {.magic: "NGetType", noSideEffect.}
-
-proc getQuotedTypeFields(T: typedesc): seq[string] {.compileTime.} =
-  # Generated list of fields for given object typedesc
-  let recList = T.typeNode[1].getType[1]
+proc objectTyFieldList(objectTy: NimNode): seq[string] {.compileTime.} =
   result = newSeq[string]()
-  for node in children(recList):
-    result.add("`" & node.repr & "`")
+  let recList = objectTy[1]
+  for field in children(recList):
+    result.add($field)
+  if $objectTy[0] != "Model":
+    for fieldName in objectTyFieldList(objectTy[0].getType):
+      result.add(fieldName)
+
+proc objectTyFieldIndex(objectTy: NimNode, name: string): int {.compileTime.} =
+  let recList = objectTy[1]
+  var index = 0
+  for field in children(recList):
+    if $field == name:
+      return index
+    index += 1
+  if $objectTy[0] != "Model":
+    return index + objectTyFieldIndex(objectTy[0].getType, name)
+  result = index
+
+proc quote(list: seq[string]): seq[string] {.compileTime.} =
+  result = newSeq[string]()
+  for item in list:
+    result.add("`" & item & "`")
+
+macro fieldIndex*(sym: Model, field: expr): expr =
+  ## Returns index of the field in the object record
+  newLit(objectTyFieldIndex(sym.getType, $field))
+
+when false:
+  macro fieldList*(sym: Model): expr =
+    ## Returns index of the field in the object record
+    newLit(objectTyFieldList(sym.getType).join(", "))
+
+  macro fieldList*(sym: typedesc[Model]): expr =
+    ## Returns index of the field in the object record
+    newLit(objectTyFieldList(sym.getType[1].getType).join(", "))
 
 macro where*(T: typedesc[Model], st: untyped): expr =
   ## Generates SQL query out of untyped expression and returns call to fetch
   ## iterator with generated SQL query as argument and all not resolved
   ## subexpressions.
   var args = newSeq[NimNode]()
-  let queryFields = T.getQuotedTypeFields.join(", ")
+  let queryFields = T.getType[1].getType.objectTyFieldList.quote.join(", ")
   let query = "SELECT " & queryFields & " FROM " & T.repr &
               " WHERE " & genWhere(T, st, args)
   result = newNimNode(nnkCall)
@@ -133,3 +162,22 @@ macro where*(T: typedesc[Model], st: untyped): expr =
     .add(newIdentNode(T.repr))
     .add(newLit(query))
     .add(args)
+
+proc loadField*(user: Model, field: int): string {.inline.} =
+  user.row[int32(field)]
+
+template ormLoad*{user.field}(user: Model, field: expr{field}): expr =
+  ## Rewrites all model field access to deferred loads
+  if fieldIndex(user, field) notin ({.noRewrite.}: user.loaded):
+    incl(({.noRewrite.}: user.loaded), fieldIndex(user, field))
+    {.noRewrite.}: ({.noRewrite.}: user.field) =
+      loadField(user, fieldIndex(user, field))
+  {.noRewrite.}: user.field
+
+template ormStore*{user.field = value}(user: Model, field: expr{field},
+                                          value: expr): expr =
+  ## Rewrites all model field store to mark which fields were stored actually
+  if fieldIndex(user, field) notin ({.noRewrite.}: user.stored):
+    incl(({.noRewrite.}: user.loaded), fieldIndex(user, field))
+    incl(({.noRewrite.}: user.stored), fieldIndex(user, field))
+  {.noRewrite.}: ({.noRewrite.}: user.field) = value

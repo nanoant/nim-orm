@@ -9,6 +9,13 @@ This is ORM module for [Nim][nim] language and its `db_sqlite`, `db_mysql` and
 Importing `orm` requires one of `sqlite`, `mysql` or `postgres` defines, since
 ORM module imports on of the databases.
 
+### Prerequisites
+
+This module now depends on following PRs not yet merged:
+
+* [PR #2866](https://github.com/Araq/Nim/pull/2866)
+* [PR #2859](https://github.com/Araq/Nim/pull/2859)
+
 ### Features
 
 1. Turning Nim expressions into SQL syntax at compile time
