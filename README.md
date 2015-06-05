@@ -11,10 +11,9 @@ ORM module imports on of the databases.
 
 ### Prerequisites
 
-This module now depends on following PRs not yet merged:
+This module now depends on following PR not yet merged:
 
-* [PR #2866](https://github.com/Araq/Nim/pull/2866)
-* [PR #2859](https://github.com/Araq/Nim/pull/2859)
+* [#2866 db: InstantRow and instantRows](https://github.com/Araq/Nim/pull/2866)
 
 ### Features
 

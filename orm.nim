@@ -23,7 +23,7 @@
 import macros, strutils
 from typetraits import nil
 
-when not declared(TDBConn):
+when not declared(DBConn):
   {.error: """orm is not intended to be used directly, use wrappers, eg.:
 import orm_sqlite   # for sqlite
 import orm_mysql    # for mysql
@@ -46,9 +46,9 @@ type
     ##     password: string
     loaded: set[int8] ## maintains list of fields loaded from db
     stored: set[int8] ## maintains list of fields to be stored in the db
-    row: TDeferredRow
+    row: InstantRow
 
-var db : TDBConn = nil
+var db : DBConn = nil
 
 proc open*(T: typedesc[Model], connection, user, password, database: string) =
   ## Opens database for ORM.
@@ -105,7 +105,7 @@ iterator fetch*[T: Model](t: typedesc[T], query: string,
                           args: varargs[string, `$`]): ref T =
   ## Executes query with current db API handle and fetches results as instances
   ## of T < Model.
-  for row in deferredRows(db, sql(query), args):
+  for row in instantRows(db, sql(query), args):
     var model : ref T
     new(model)
     {.noRewrite.}: ({.noRewrite.}: model.row) = row
@@ -174,8 +174,9 @@ template ormLoad*{user.field}(user: Model, field: expr{field}): expr =
       loadField(user, fieldIndex(user, field))
   {.noRewrite.}: user.field
 
-template ormStore*{user.field = value}(user: Model, field: expr{field},
-                                          value: expr): expr =
+template ormStore*{user.field = value}(user: Model,
+                                       field: expr{field},
+                                       value: expr): expr =
   ## Rewrites all model field store to mark which fields were stored actually
   if fieldIndex(user, field) notin ({.noRewrite.}: user.stored):
     incl(({.noRewrite.}: user.loaded), fieldIndex(user, field))
