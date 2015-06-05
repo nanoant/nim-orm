@@ -50,6 +50,52 @@ type
 
 var db : DBConn = nil
 
+# Generic type handling helpers ################################################
+
+proc objectTyFieldList(objectTy: NimNode): seq[string] {.compileTime.} =
+  result = newSeq[string]()
+  let recList = objectTy[1]
+  for field in children(recList):
+    result.add($field)
+  if $objectTy[0] != "Model":
+    for fieldName in objectTyFieldList(objectTy[0].getType):
+      result.add(fieldName)
+
+proc objectTyFieldIndex(objectTy: NimNode, name: NimNode): int32
+  {.compileTime.} =
+  let recList = objectTy[1]
+  var index: int32 = 0
+  for field in children(recList):
+    # FIXME: we need to compare symbol strings not symbols itself
+    # which does not match for some reason here.
+    if $field.symbol == $name.symbol:
+      return index
+    index += 1
+  if $objectTy[0] != "Model":
+    return index + objectTyFieldIndex(objectTy[0].getType, name)
+  result = index
+
+proc quote(list: seq[string]): seq[string] {.compileTime.} =
+  result = newSeq[string]()
+  for item in list:
+    result.add("`" & item & "`")
+
+macro fieldIndex*(sym: Model, field: expr): expr =
+  ## Returns index of the field in the object record
+  newLit(objectTyFieldIndex(sym.getType, field))
+
+# not used currently but I don't want to remove this yet from the code
+when false:
+  macro fieldList*(sym: Model): expr =
+    ## Returns index of the field in the object record
+    newLit(objectTyFieldList(sym.getType).join(", "))
+
+  macro fieldList*(sym: typedesc[Model]): expr =
+    ## Returns index of the field in the object record
+    newLit(objectTyFieldList(sym.getType[1].getType).join(", "))
+
+# Database handling and object iteration #######################################
+
 proc open*(T: typedesc[Model], connection, user, password, database: string) =
   ## Opens database for ORM.
   db = open(connection, user, password, database)
@@ -111,47 +157,6 @@ iterator fetch*[T: Model](t: typedesc[T], query: string,
     {.noRewrite.}: ({.noRewrite.}: model.row) = row
     yield model
 
-proc objectTyFieldList(objectTy: NimNode): seq[string] {.compileTime.} =
-  result = newSeq[string]()
-  let recList = objectTy[1]
-  for field in children(recList):
-    result.add($field)
-  if $objectTy[0] != "Model":
-    for fieldName in objectTyFieldList(objectTy[0].getType):
-      result.add(fieldName)
-
-proc objectTyFieldIndex(objectTy: NimNode, name: NimNode): int {.compileTime.} =
-  let recList = objectTy[1]
-  var index = 0
-  for field in children(recList):
-    # FIXME: we need to compare symbol strings not symbols itself
-    # which does not match for some reason here.
-    if $field.symbol == $name.symbol:
-      return index
-    index += 1
-  if $objectTy[0] != "Model":
-    return index + objectTyFieldIndex(objectTy[0].getType, name)
-  result = index
-
-proc quote(list: seq[string]): seq[string] {.compileTime.} =
-  result = newSeq[string]()
-  for item in list:
-    result.add("`" & item & "`")
-
-macro fieldIndex*(sym: Model, field: expr): expr =
-  ## Returns index of the field in the object record
-  newLit(objectTyFieldIndex(sym.getType, field))
-
-# not used currently but I don't want to remove this yet from the code
-when false:
-  macro fieldList*(sym: Model): expr =
-    ## Returns index of the field in the object record
-    newLit(objectTyFieldList(sym.getType).join(", "))
-
-  macro fieldList*(sym: typedesc[Model]): expr =
-    ## Returns index of the field in the object record
-    newLit(objectTyFieldList(sym.getType[1].getType).join(", "))
-
 macro where*(T: typedesc[Model], st: untyped): expr =
   ## Generates SQL query out of untyped expression and returns call to fetch
   ## iterator with generated SQL query as argument and all not resolved
@@ -166,16 +171,33 @@ macro where*(T: typedesc[Model], st: untyped): expr =
     .add(newLit(query))
     .add(args)
 
-proc loadField*(user: Model, field: int): string {.inline.} =
-  user.row[int32(field)]
+# Field load handling ##########################################################
+
+template loadField(T: typedesc[string], user: Model, field: int32): string =
+  ## Loads simple string from db
+  `[]`(({.noRewrite.}: user.row), field)
+
+template loadField(T: typedesc[int], user: Model, field: int32): int =
+  ## Loads int field out of string
+  parseInt(loadField(string, user, field))
+
+template loadField(T: typedesc[float], user: Model, field: int32): float =
+  ## Loads float field out of string
+  parseFloat(loadField(string, user, field))
+
+template loadField(T: typedesc[bool], user: Model, field: int32): bool =
+  ## Loads bool field out of string
+  parseBool(loadField(string, user, field))
 
 template ormLoad*{user.field}(user: Model, field: expr{field}): expr =
   ## Rewrites all model field access to deferred loads
   if fieldIndex(user, field) notin ({.noRewrite.}: user.loaded):
     incl(({.noRewrite.}: user.loaded), fieldIndex(user, field))
     {.noRewrite.}: ({.noRewrite.}: user.field) =
-      loadField(user, fieldIndex(user, field))
+      loadField(type(user.field), user, fieldIndex(user, field))
   {.noRewrite.}: user.field
+
+# Field store handling #########################################################
 
 template ormStore*{user.field = value}(user: Model,
                                        field: expr{field},
@@ -185,3 +207,9 @@ template ormStore*{user.field = value}(user: Model,
     incl(({.noRewrite.}: user.loaded), fieldIndex(user, field))
     incl(({.noRewrite.}: user.stored), fieldIndex(user, field))
   {.noRewrite.}: ({.noRewrite.}: user.field) = value
+
+proc save*(user: Model) =
+  raise newException(FieldError, "not implemented")
+
+proc save*(user: ref Model) =
+  raise newException(FieldError, "not implemented")
