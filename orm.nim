@@ -120,11 +120,13 @@ proc objectTyFieldList(objectTy: NimNode): seq[string] {.compileTime.} =
     for fieldName in objectTyFieldList(objectTy[0].getType):
       result.add(fieldName)
 
-proc objectTyFieldIndex(objectTy: NimNode, name: string): int {.compileTime.} =
+proc objectTyFieldIndex(objectTy: NimNode, name: NimNode): int {.compileTime.} =
   let recList = objectTy[1]
   var index = 0
   for field in children(recList):
-    if $field == name:
+    # FIXME: we need to compare symbol strings not symbols itself
+    # which does not match for some reason here.
+    if $field.symbol == $name.symbol:
       return index
     index += 1
   if $objectTy[0] != "Model":
@@ -138,8 +140,9 @@ proc quote(list: seq[string]): seq[string] {.compileTime.} =
 
 macro fieldIndex*(sym: Model, field: expr): expr =
   ## Returns index of the field in the object record
-  newLit(objectTyFieldIndex(sym.getType, $field))
+  newLit(objectTyFieldIndex(sym.getType, field))
 
+# not used currently but I don't want to remove this yet from the code
 when false:
   macro fieldList*(sym: Model): expr =
     ## Returns index of the field in the object record
