@@ -1,5 +1,4 @@
 import ../orm_sqlite
-import macros
 import strutils
 
 type User = object of Model

@@ -57,7 +57,7 @@ proc objectTyFieldList(objectTy: NimNode): seq[string] {.compileTime.} =
   let recList = objectTy[1]
   for field in children(recList):
     result.add($field)
-  if $objectTy[0] != "Model":
+  if objectTy[0] != bindsym"Model":
     for fieldName in objectTyFieldList(objectTy[0].getType):
       result.add(fieldName)
 
@@ -66,12 +66,10 @@ proc objectTyFieldIndex(objectTy: NimNode, name: NimNode): int32
   let recList = objectTy[1]
   var index: int32 = 0
   for field in children(recList):
-    # FIXME: we need to compare symbol strings not symbols itself
-    # which does not match for some reason here.
-    if $field.symbol == $name.symbol:
+    if field == name:
       return index
     index += 1
-  if $objectTy[0] != "Model":
+  if objectTy[0] != bindsym"Model":
     return index + objectTyFieldIndex(objectTy[0].getType, name)
   result = index
 
