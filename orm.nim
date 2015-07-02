@@ -57,7 +57,7 @@ proc objectTyFieldList(objectTy: NimNode): seq[string] {.compileTime.} =
   let recList = objectTy[1]
   for field in children(recList):
     result.add($field)
-  if objectTy[0] != bindsym"Model":
+  if not objectTy[0].sameType bindsym"Model":
     for fieldName in objectTyFieldList(objectTy[0].getType):
       result.add(fieldName)
 
@@ -69,7 +69,7 @@ proc objectTyFieldIndex(objectTy: NimNode, name: NimNode): int32
     if field == name:
       return index
     index += 1
-  if objectTy[0] != bindsym"Model":
+  if not objectTy[0].sameType bindsym"Model":
     return index + objectTyFieldIndex(objectTy[0].getType, name)
   result = index
 
