@@ -198,8 +198,8 @@ template ormLoad*{user.field}(user: Model, field: untyped{field}): untyped =
 # Field store handling #########################################################
 
 template ormStore*{user.field = value}(user: Model,
-                                       field: expr{field},
-                                       value: expr): expr =
+                                       field: untyped{field},
+                                       value: untyped): expr =
   ## Rewrites all model field store to mark which fields were stored actually
   if fieldIndex(user, field) notin ({.noRewrite.}: user.stored):
     incl(({.noRewrite.}: user.loaded), fieldIndex(user, field))
