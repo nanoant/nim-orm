@@ -84,11 +84,11 @@ macro fieldIndex*(sym: Model, field: untyped): untyped =
 
 # not used currently but I don't want to remove this yet from the code
 when false:
-  macro fieldList*(sym: Model): expr =
+  macro fieldList*(sym: Model): untyped =
     ## Returns index of the field in the object record
     newLit(objectTyFieldList(sym.getType).join(", "))
 
-  macro fieldList*(sym: typedesc[Model]): expr =
+  macro fieldList*(sym: typedesc[Model]): untyped =
     ## Returns index of the field in the object record
     newLit(objectTyFieldList(sym.getType[1].getType).join(", "))
 
@@ -199,7 +199,7 @@ template ormLoad*{user.field}(user: Model, field: untyped{field}): untyped =
 
 template ormStore*{user.field = value}(user: Model,
                                        field: untyped{field},
-                                       value: untyped): expr =
+                                       value: untyped): untyped =
   ## Rewrites all model field store to mark which fields were stored actually
   if fieldIndex(user, field) notin ({.noRewrite.}: user.stored):
     incl(({.noRewrite.}: user.loaded), fieldIndex(user, field))
