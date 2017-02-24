@@ -155,7 +155,7 @@ iterator fetch*[T: Model](t: typedesc[T], query: string,
     {.noRewrite.}: ({.noRewrite.}: model.row) = row
     yield model
 
-macro where*(T: typedesc[Model], st: untyped): expr =
+macro where*(T: typedesc[Model], st: untyped): untyped =
   ## Generates SQL query out of untyped expression and returns call to fetch
   ## iterator with generated SQL query as argument and all not resolved
   ## subexpressions.
