@@ -168,7 +168,6 @@ macro where*(T: typedesc[Model], st: untyped): untyped =
     .add(newIdentNode(T.getType[1].repr))
     .add(newLit(query))
     .add(args)
-  echo result.repr
 
 # Field load handling ##########################################################
 
