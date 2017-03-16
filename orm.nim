@@ -161,7 +161,7 @@ macro where*(T: typedesc[Model], st: untyped): untyped =
   ## subexpressions.
   var args = newSeq[NimNode]()
   let queryFields = T.getType[1].getType.objectTyFieldList.quote.join(", ")
-  let query = "SELECT " & queryFields & " FROM " & T.repr &
+  let query = "SELECT " & queryFields & " FROM " & T.getType[1].repr &
               " WHERE " & genWhere(T, st, args)
   result = newNimNode(nnkCall)
     .add(bindSym"fetch")
