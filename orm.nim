@@ -197,7 +197,7 @@ template ormLoad*{user.field}(user: ref Model, field: untyped{field}): untyped =
 
 # Field store handling #########################################################
 
-template ormStore*{user.field = value}(user: Model,
+template ormStore*{user.field = value}(user: ref Model,
                                        field: untyped{field},
                                        value: untyped): untyped =
   ## Rewrites all model field store to mark which fields were stored actually
