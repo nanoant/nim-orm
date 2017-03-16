@@ -78,7 +78,7 @@ proc quote(list: seq[string]): seq[string] {.compileTime.} =
   for item in list:
     result.add("`" & item & "`")
 
-macro fieldIndex*(sym: Model, field: untyped): untyped =
+macro fieldIndex*(sym: ref Model, field: untyped): untyped =
   ## Returns index of the field in the object record
   newLit(objectTyFieldIndex(sym.getType, field))
 
