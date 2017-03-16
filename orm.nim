@@ -187,7 +187,7 @@ template loadField(T: typedesc[bool], user: Model, field: int32): bool =
   ## Loads bool field out of string
   parseBool(loadField(string, user, field))
 
-template ormLoad*{user.field}(user: Model, field: untyped{field}): untyped =
+template ormLoad*{user.field}(user: ref Model, field: untyped{field}): untyped =
   ## Rewrites all model field access to deferred loads
   if fieldIndex(user, field) notin ({.noRewrite.}: user.loaded):
     incl(({.noRewrite.}: user.loaded), fieldIndex(user, field))
