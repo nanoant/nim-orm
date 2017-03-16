@@ -71,7 +71,7 @@ proc objectTyFieldIndex(objectTy: NimNode, name: NimNode): int32
     index += 1
 
   ##NOT HAPPENED YET. but I changed objectTy[0] to objectTy[1]
-  if not objectTy[1].sameType bindsym"Model":
+  if not objectTy[1].getType.sameType bindsym"Model":
     return index + objectTyFieldIndex(objectTy[1].getType, name)
   result = index
 
