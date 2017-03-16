@@ -171,19 +171,19 @@ macro where*(T: typedesc[Model], st: untyped): untyped =
 
 # Field load handling ##########################################################
 
-template loadField(T: typedesc[string], user: Model, field: int32): string =
+template loadField(T: typedesc[string], user: ref Model, field: int32): string =
   ## Loads simple string from db
   `[]`(({.noRewrite.}: user.row), field)
 
-template loadField(T: typedesc[int], user: Model, field: int32): int =
+template loadField(T: typedesc[int], user: ref Model, field: int32): int =
   ## Loads int field out of string
   parseInt(loadField(string, user, field))
 
-template loadField(T: typedesc[float], user: Model, field: int32): float =
+template loadField(T: typedesc[float], user: ref Model, field: int32): float =
   ## Loads float field out of string
   parseFloat(loadField(string, user, field))
 
-template loadField(T: typedesc[bool], user: Model, field: int32): bool =
+template loadField(T: typedesc[bool], user: ref Model, field: int32): bool =
   ## Loads bool field out of string
   parseBool(loadField(string, user, field))
 
