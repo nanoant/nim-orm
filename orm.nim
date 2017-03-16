@@ -63,7 +63,7 @@ proc objectTyFieldList(objectTy: NimNode): seq[string] {.compileTime.} =
 
 proc objectTyFieldIndex(objectTy: NimNode, name: NimNode): int32
   {.compileTime.} =
-  let recList = objectTy[1]
+  let recList = objectTy[1].getType[2] #getType[2] is nnkRecList
   var index: int32 = 0
   for field in children(recList):
     if field == name:
