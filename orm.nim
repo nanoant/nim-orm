@@ -136,7 +136,7 @@ proc genWhere*(T: typedesc[Model], n: NimNode, args: var seq[NimNode]): string
   # prefix, we only accept @ prefix for field names
   of nnkPrefix:
     if $n[0].ident == "@":
-      return "`" & T.repr & "`.`" & $n[1].ident & "`"
+      return "`" & T.getType[1].repr & "`.`" & $n[1].ident & "`"
   else: discard
   args.add(n)
   result = "?"
