@@ -54,7 +54,7 @@ var db : DBConn = nil
 
 proc objectTyFieldList(objectTy: NimNode): seq[string] {.compileTime.} =
   result = newSeq[string]()
-  let recList = objectTy[1]
+  let recList = objectTy[2]
   for field in children(recList):
     result.add($field)
   if not objectTy[1].sameType bindsym"Model":
