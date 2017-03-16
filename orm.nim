@@ -69,8 +69,9 @@ proc objectTyFieldIndex(objectTy: NimNode, name: NimNode): int32
     if field == name:
       return index
     index += 1
-  if not objectTy[0].sameType bindsym"Model":
-    return index + objectTyFieldIndex(objectTy[0].getType, name)
+
+  if not objectTy[1].sameType bindsym"Model":
+    return index + objectTyFieldIndex(objectTy[1].getType, name)
   result = index
 
 proc quote(list: seq[string]): seq[string] {.compileTime.} =
