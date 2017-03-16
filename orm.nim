@@ -165,7 +165,7 @@ macro where*(T: typedesc[Model], st: untyped): untyped =
               " WHERE " & genWhere(T, st, args)
   result = newNimNode(nnkCall)
     .add(bindSym"fetch")
-    .add(newIdentNode(T.repr))
+    .add(newIdentNode(T.getType[1].repr))
     .add(newLit(query))
     .add(args)
 
