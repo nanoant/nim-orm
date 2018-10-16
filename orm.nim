@@ -50,6 +50,7 @@ type
                       ##
                       ## int8 can't be modified as int32, Error: set is too large
     stored: set[int8] ## maintains list of fields to be stored in the db
+                      ## indexes of the field, to be saving
     row: InstantRow
 
 var db : DBConn = nil
