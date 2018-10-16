@@ -122,7 +122,7 @@ proc genWhere*(T: typedesc[Model], n: NimNode, args: var seq[NimNode]): string
     return "(" & genWhere(T, n[0], args) & ")"
   # process all infix operators
   of nnkInfix:
-    let ident = $n[0]
+    let ident = $n[0] # or use n[0].strVal, which is the same
     case ident:
     # common Nim and SQL operators
     of "+", "-", "*", "/", "%", "<", "<=", ">", ">=":
