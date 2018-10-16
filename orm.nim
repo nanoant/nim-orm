@@ -122,7 +122,7 @@ proc genWhere*(T: typedesc[Model], n: NimNode, args: var seq[NimNode]): string
     return "(" & genWhere(T, n[0], args) & ")"
   # process all infix operators
   of nnkInfix:
-    let ident = $n[0].ident
+    let ident = $n[0]
     case ident:
     # common Nim and SQL operators
     of "+", "-", "*", "/", "%", "<", "<=", ">", ">=":
@@ -131,7 +131,7 @@ proc genWhere*(T: typedesc[Model], n: NimNode, args: var seq[NimNode]): string
     else:
       # check for Nim to SQL operator conversion
       for i in 0..sqlInfixOps.len-1:
-        if $n[0].ident == sqlInfixOps[i][0]:
+        if $n[0] == sqlInfixOps[i][0]:
           return genWhere(T, n[1], args) & " " & sqlInfixOps[i][1] & " " &
                  genWhere(T, n[2], args)
   # integer literal
@@ -142,8 +142,8 @@ proc genWhere*(T: typedesc[Model], n: NimNode, args: var seq[NimNode]): string
       return "'" & $n.strVal & "'"
   # prefix, we only accept @ prefix for field names
   of nnkPrefix:
-    if $n[0].ident == "@":
-      return "`" & T.getType[1].repr & "`.`" & $n[1].ident & "`"
+    if $n[0] == "@":
+      return "`" & T.getType[1].repr & "`.`" & $n[1] & "`"
   else: discard
   args.add(n)
   result = "?"
