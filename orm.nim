@@ -136,7 +136,7 @@ proc genWhere*(T: typedesc[Model], n: NimNode, args: var seq[NimNode]): string
                  genWhere(T, n[2], args)
   # integer literal
   of nnkIntLit:
-      return $n.intVal
+      return $n.intVal #must use $n.intVal
   # string literal
   of nnkStrLit:
       return "'" & $n.strVal & "'"
