@@ -70,6 +70,17 @@ for user in User.fetch("SELECT `name`, `password` FROM `User` where
                        password, name):
 ~~~
 
+~~~nim
+
+for user in User:
+~~~
+
+is translated to:
+
+~~~nim
+for user in User.fetch("SELECT `name`, `password` FROM `User`"):
+~~~
+
 [ruby]: https://www.ruby-lang.org/
 [activemodel]: https://github.com/rails/rails/tree/master/activemodel
 
