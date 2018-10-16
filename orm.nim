@@ -162,6 +162,17 @@ iterator fetch*[T: Model](t: typedesc[T], query: string,
     {.noRewrite.}: ({.noRewrite.}: model.row) = row
     yield model
 
+macro items*(T: typedesc[Model]):  untyped =
+  ## iterates over each item of `Model`.
+  var args = newSeq[NimNode]()
+  let queryFields = T.getType[1].getType.objectTyFieldList.quote.join(", ")
+  let query = "SELECT " & queryFields & " FROM " & T.getType[1].repr
+  result = newNimNode(nnkCall)
+    .add(bindSym"fetch")
+    .add(newIdentNode(T.getType[1].repr))
+    .add(newLit(query))
+    .add(args)
+
 macro where*(T: typedesc[Model], st: untyped): untyped =
   ## Generates SQL query out of untyped expression and returns call to fetch
   ## iterator with generated SQL query as argument and all not resolved

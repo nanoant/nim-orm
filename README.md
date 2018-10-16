@@ -38,6 +38,11 @@ ORM module imports on of the databases.
    for user in User.where((@password == "123" or @password == password) and
                           (@name == "joe" or @name == name)):
      echo user.name
+
+   # expected: joe, ann
+   for user in User:
+     echo user.name
+
    ~~~
 
 ### Discussion
