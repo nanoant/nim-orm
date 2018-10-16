@@ -214,7 +214,7 @@ template ormStore*{user.field = value}(user: ref Model,
   {.noRewrite.}: ({.noRewrite.}: user.field) = value
 
 proc save*(user: Model) =
-  raise newException(FieldError, "not implemented")
+  raise newException(FieldError, "Not Implemented Yet")
 
 proc save*(user: ref Model) =
-  raise newException(FieldError, "not implemented")
+  raise newException(FieldError, "Not Implemented Yet")
