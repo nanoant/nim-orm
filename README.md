@@ -70,6 +70,8 @@ for user in User.fetch("SELECT `name`, `password` FROM `User` where
                        password, name):
 ~~~
 
+add macro items
+
 ~~~nim
 
 for user in User:
