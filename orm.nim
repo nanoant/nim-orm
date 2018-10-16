@@ -45,6 +45,10 @@ type
     ##     name: string
     ##     password: string
     loaded: set[int8] ## maintains list of fields loaded from db
+                      ## indexes of the field,
+                      ## like 0, 1, 2, 3, 4
+                      ##
+                      ## int8 can't be modified as int32, Error: set is too large
     stored: set[int8] ## maintains list of fields to be stored in the db
     row: InstantRow
 
