@@ -38,6 +38,11 @@ ORM module imports on of the databases.
    for user in User.where((@password == "123" or @password == password) and
                           (@name == "joe" or @name == name)):
      echo user.name
+
+   # expected: joe, ann
+   for user in User:
+     echo user.name
+
    ~~~
 
 ### Discussion
@@ -63,6 +68,19 @@ for user in User.fetch("SELECT `name`, `password` FROM `User` where
                         (`User`.`password` = '123' OR `User`.`password` = ?) AND
                         (`User`.`name` = 'joe' OR `User`.`name` = ?)",
                        password, name):
+~~~
+
+add macro items
+
+~~~nim
+
+for user in User:
+~~~
+
+is translated to:
+
+~~~nim
+for user in User.fetch("SELECT `name`, `password` FROM `User`"):
 ~~~
 
 [ruby]: https://www.ruby-lang.org/

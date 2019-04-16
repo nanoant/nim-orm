@@ -45,8 +45,13 @@ type
     ##     name: string
     ##     password: string
     loaded: set[int8] ## maintains list of fields loaded from db
+                      ## indexes of the field,
+                      ## like 0, 1, 2, 3, 4
+                      ##
+                      ## int8 can't be modified as int32, Error: set is too large
     stored: set[int8] ## maintains list of fields to be stored in the db
-    row: InstantRow
+                      ## indexes of the field, to be saving
+    row: InstantRow   ## InstantRow of sqlite, mysql, pgsql
 
 var db : DBConn = nil
 
@@ -54,23 +59,25 @@ var db : DBConn = nil
 
 proc objectTyFieldList(objectTy: NimNode): seq[string] {.compileTime.} =
   result = newSeq[string]()
-  let recList = objectTy[1]
+  let recList = objectTy[2]
   for field in children(recList):
-    result.add($field)
-  if not objectTy[0].sameType bindsym"Model":
-    for fieldName in objectTyFieldList(objectTy[0].getType):
+    result.add($field) #all fields name
+  if not objectTy[1].sameType bindsym"Model":
+    for fieldName in objectTyFieldList(objectTy[1].getType):
       result.add(fieldName)
 
-proc objectTyFieldIndex(objectTy: NimNode, name: NimNode): int32
+proc objectTyFieldIndex(objectTy: NimNode, name: NimNode): int8
   {.compileTime.} =
-  let recList = objectTy[1]
-  var index: int32 = 0
+  let recList = objectTy[1].getType[2] #getType[2] is nnkRecList
+  var index: int8 = 0
   for field in children(recList):
     if field == name:
       return index
     index += 1
-  if not objectTy[0].sameType bindsym"Model":
-    return index + objectTyFieldIndex(objectTy[0].getType, name)
+
+  ##NOT HAPPENED YET. but I changed objectTy[0] to objectTy[1]
+  if not objectTy[1].getType.sameType bindsym"Model":
+    return index + objectTyFieldIndex(objectTy[1].getType, name)
   result = index
 
 proc quote(list: seq[string]): seq[string] {.compileTime.} =
@@ -78,17 +85,17 @@ proc quote(list: seq[string]): seq[string] {.compileTime.} =
   for item in list:
     result.add("`" & item & "`")
 
-macro fieldIndex*(sym: Model, field: expr): expr =
+macro fieldIndex*(sym: ref Model, field: untyped): untyped =
   ## Returns index of the field in the object record
   newLit(objectTyFieldIndex(sym.getType, field))
 
 # not used currently but I don't want to remove this yet from the code
 when false:
-  macro fieldList*(sym: Model): expr =
+  macro fieldList*(sym: Model): untyped =
     ## Returns index of the field in the object record
     newLit(objectTyFieldList(sym.getType).join(", "))
 
-  macro fieldList*(sym: typedesc[Model]): expr =
+  macro fieldList*(sym: typedesc[Model]): untyped =
     ## Returns index of the field in the object record
     newLit(objectTyFieldList(sym.getType[1].getType).join(", "))
 
@@ -115,7 +122,7 @@ proc genWhere*(T: typedesc[Model], n: NimNode, args: var seq[NimNode]): string
     return "(" & genWhere(T, n[0], args) & ")"
   # process all infix operators
   of nnkInfix:
-    let ident = $n[0].ident
+    let ident = $n[0] # or use n[0].strVal, which is the same
     case ident:
     # common Nim and SQL operators
     of "+", "-", "*", "/", "%", "<", "<=", ">", ">=":
@@ -124,19 +131,19 @@ proc genWhere*(T: typedesc[Model], n: NimNode, args: var seq[NimNode]): string
     else:
       # check for Nim to SQL operator conversion
       for i in 0..sqlInfixOps.len-1:
-        if $n[0].ident == sqlInfixOps[i][0]:
+        if $n[0] == sqlInfixOps[i][0]:
           return genWhere(T, n[1], args) & " " & sqlInfixOps[i][1] & " " &
                  genWhere(T, n[2], args)
   # integer literal
   of nnkIntLit:
-      return $n.intVal
+      return $n.intVal #must use $n.intVal
   # string literal
   of nnkStrLit:
       return "'" & $n.strVal & "'"
   # prefix, we only accept @ prefix for field names
   of nnkPrefix:
-    if $n[0].ident == "@":
-      return "`" & T.repr & "`.`" & $n[1].ident & "`"
+    if $n[0] == "@":
+      return "`" & T.getType[1].repr & "`.`" & $n[1] & "`"
   else: discard
   args.add(n)
   result = "?"
@@ -155,39 +162,50 @@ iterator fetch*[T: Model](t: typedesc[T], query: string,
     {.noRewrite.}: ({.noRewrite.}: model.row) = row
     yield model
 
-macro where*(T: typedesc[Model], st: untyped): expr =
+macro items*(T: typedesc[Model]):  untyped =
+  ## iterates over each item of `Model`.
+  var args = newSeq[NimNode]()
+  let queryFields = T.getType[1].getType.objectTyFieldList.quote.join(", ")
+  let query = "SELECT " & queryFields & " FROM " & T.getType[1].repr
+  result = newNimNode(nnkCall)
+    .add(bindSym"fetch")
+    .add(newIdentNode(T.getType[1].repr))
+    .add(newLit(query))
+    .add(args)
+
+macro where*(T: typedesc[Model], st: untyped): untyped =
   ## Generates SQL query out of untyped expression and returns call to fetch
   ## iterator with generated SQL query as argument and all not resolved
   ## subexpressions.
   var args = newSeq[NimNode]()
   let queryFields = T.getType[1].getType.objectTyFieldList.quote.join(", ")
-  let query = "SELECT " & queryFields & " FROM " & T.repr &
+  let query = "SELECT " & queryFields & " FROM " & T.getType[1].repr &
               " WHERE " & genWhere(T, st, args)
   result = newNimNode(nnkCall)
     .add(bindSym"fetch")
-    .add(newIdentNode(T.repr))
+    .add(newIdentNode(T.getType[1].repr))
     .add(newLit(query))
     .add(args)
 
 # Field load handling ##########################################################
 
-template loadField(T: typedesc[string], user: Model, field: int32): string =
+template loadField(T: typedesc[string], user: ref Model, field: int32): string =
   ## Loads simple string from db
   `[]`(({.noRewrite.}: user.row), field)
 
-template loadField(T: typedesc[int], user: Model, field: int32): int =
+template loadField(T: typedesc[int], user: ref Model, field: int32): int =
   ## Loads int field out of string
   parseInt(loadField(string, user, field))
 
-template loadField(T: typedesc[float], user: Model, field: int32): float =
+template loadField(T: typedesc[float], user: ref Model, field: int32): float =
   ## Loads float field out of string
   parseFloat(loadField(string, user, field))
 
-template loadField(T: typedesc[bool], user: Model, field: int32): bool =
+template loadField(T: typedesc[bool], user: ref Model, field: int32): bool =
   ## Loads bool field out of string
   parseBool(loadField(string, user, field))
 
-template ormLoad*{user.field}(user: Model, field: expr{field}): expr =
+template ormLoad*{user.field}(user: ref Model, field: untyped{field}): untyped =
   ## Rewrites all model field access to deferred loads
   if fieldIndex(user, field) notin ({.noRewrite.}: user.loaded):
     incl(({.noRewrite.}: user.loaded), fieldIndex(user, field))
@@ -197,9 +215,9 @@ template ormLoad*{user.field}(user: Model, field: expr{field}): expr =
 
 # Field store handling #########################################################
 
-template ormStore*{user.field = value}(user: Model,
-                                       field: expr{field},
-                                       value: expr): expr =
+template ormStore*{user.field = value}(user: ref Model,
+                                       field: untyped{field},
+                                       value: untyped): untyped =
   ## Rewrites all model field store to mark which fields were stored actually
   if fieldIndex(user, field) notin ({.noRewrite.}: user.stored):
     incl(({.noRewrite.}: user.loaded), fieldIndex(user, field))
@@ -207,7 +225,7 @@ template ormStore*{user.field = value}(user: Model,
   {.noRewrite.}: ({.noRewrite.}: user.field) = value
 
 proc save*(user: Model) =
-  raise newException(FieldError, "not implemented")
+  raise newException(FieldError, "Not Implemented Yet")
 
 proc save*(user: ref Model) =
-  raise newException(FieldError, "not implemented")
+  raise newException(FieldError, "Not Implemented Yet")
